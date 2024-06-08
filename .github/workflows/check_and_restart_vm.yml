@@ -1,0 +1,29 @@
+name: Check and Restart VM
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # Запуск каждые 5 минут
+
+jobs:
+  check-and-restart:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Yandex.Cloud CLI
+      run: |
+        curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
+        yc init --token ${{ secrets.YC_TOKEN }} --cloud-id ${{ secrets.YC_CLOUD_ID }} --folder-id ${{ secrets.YC_FOLDER_ID }}
+
+    - name: Run check and restart script
+      run: |
+        echo '#!/bin/bash' > check_and_restart_vm.sh
+        echo 'VM_ID="${{ secrets.VM_ID }}' >> check_and_restart_vm.sh
+        echo 'STATUS=$(yc compute instance get --id $VM_ID --format json | jq -r \'.status\')' >> check_and_restart_vm.sh
+        echo 'if [ "$STATUS" != "RUNNING" ]; then' >> check_and_restart_vm.sh
+        echo '  yc compute instance start --id $VM_ID' >> check_and_restart_vm.sh
+        echo 'fi' >> check_and_restart_vm.sh
+        chmod +x check_and_restart_vm.sh
+        ./check_and_restart_vm.sh
